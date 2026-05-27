@@ -66,26 +66,28 @@ public actor AsyncSemaphore {
 //MARK: - Rate Limiter
 public actor RateLimiter {
     
-    let maxOperations: Int
+    private let clock = ContinuousClock()
     let interval: Duration
-    private var queue = Deque<Date>()
+    
+    let maxOperations: Int
+    private var queue = Deque<ContinuousClock.Instant>()
     
     public init(maxOperations: Int, per interval: Duration) { self.maxOperations = maxOperations; self.interval = interval }
     
     public func acquire() async {
-        cleanUp()
-        if queue.count < maxOperations { return queue.append(Date()) }
-                
-        //Sleep until rate limit has refreshed
-        let wakeUpTime = TimeInterval(interval.components.seconds) - queue.first!.timeIntervalSinceNow
-        try? await Task.sleep(until: .now.advanced(by: Duration.seconds(wakeUpTime)))
-        
+        while true {
+            cleanUp()
+            if queue.count < maxOperations { return queue.append(clock.now) }
+            
+            //Sleep until rate limit has refreshed
+            let remainingInterval = (queue.first! + interval) - clock.now
+            try? await Task.sleep(for: remainingInterval)
+        }
     }
     
     private func cleanUp() {
-        let curr = Date()
-        while !queue.isEmpty,
-                queue.first!.addingTimeInterval(TimeInterval(interval.components.seconds)) <= curr {
+        let curr = clock.now
+        while !queue.isEmpty, queue.first! + interval <= curr {
             queue.removeFirst()
         }
     }
