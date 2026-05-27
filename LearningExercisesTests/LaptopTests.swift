@@ -5,6 +5,7 @@
 //  Created by Alejandro on 5/26/26.
 //
 
+import Foundation
 import Testing
 @testable import LearningExercises
 
@@ -66,5 +67,59 @@ struct LearningExercisesTests {
         await log.print()
     }
     
+}
+
+
+struct UserDefaultsTests {
+    
+    @Test func example() {
+        let store: UserDefaultsStore = UserDefaultsStore(standard: UserDefaults.standard)
+
+        let preferences = User.Preferences(isDarkMode: true, notificationsEnabled: false)
+        let userId = UUID()
+        let currentDate = Date()
+        let johnSmith = User(
+            id: userId,
+            name: "John Smith",
+            email: "johnsmith@test.com",
+            createdAt: currentDate,
+            preferences: preferences
+        )
+
+        do {
+           try store.save(johnSmith, forKey: "johnSmith")
+           print("Saved")
+        }
+        catch { print(error) }
+        
+        do {
+           let retrieved = try store.load(User.self, forKey: "johnSmith")
+           assert(retrieved == johnSmith)
+           print("Retrieved")
+        }
+        catch { print(error) }
+        
+        store.delete(forKey: "johnSmith")
+        assert(store.exists(forKey: "johnSmith") == false)
+        print("Passed All Cases")
+
+
+        @UserDefault("peggySmith", store: store, defaultValue: User.none)
+        var maggieSmith: User?
+
+        maggieSmith = User(
+            id: UUID(),
+            name: "Peggy Smith",
+            email: "peggy.smith@test.com",
+            createdAt: Date(),
+            preferences: User.Preferences(isDarkMode: true, notificationsEnabled: true)
+        )
+
+        do {
+            let retrieved = try store.load(User.self, forKey: "peggySmith")
+            assert(retrieved?.name == "Peggy Smith")
+            print("Passed Property Wrapper Bonus")
+        } catch { print(error) }
+    }
     
 }
