@@ -13,10 +13,12 @@ public final class UserDefaultsStore {
     private let standard: UserDefaults
     public init(standard: UserDefaults) { self.standard = standard }
     
-    public func save<T: Codable>(_ value: T, forKey key: String) throws {
+    @discardableResult
+    public func save<T: Codable>(_ value: T, forKey key: String) throws -> String? {
         do {
             let data = try JSONEncoder().encode(value)
             standard.set(data, forKey: key)
+            return String(data: data, encoding: .utf8)
         } catch {
             throw StorageError.encodingFailed(underlying: error)
         }
@@ -70,6 +72,14 @@ public struct User: Codable, Equatable {
         User(id: UUID(uuidString: "00000000-0000-0000-0000-000000000000")!, name: "none", email: "none", createdAt: Date(timeIntervalSince1970: 0), preferences: Preferences(isDarkMode: false, notificationsEnabled: false))
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name = "full_name"
+        case email = "electronic_mail"
+        case createdAt
+        case preferences
+    }
+    
 }
 
 @propertyWrapper public struct UserDefault<T: Codable> {
