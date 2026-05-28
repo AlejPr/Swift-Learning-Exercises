@@ -8,6 +8,7 @@ import Foundation
 @testable import LearningExercises
 
 
+//MARK: - BuildTracker Suite
 @Suite("BuildTracker")
 struct BuildTrackerTests {
     
@@ -240,6 +241,8 @@ struct BuildTrackerTests {
 }
 
 
+//MARK: - SyncCoordinator Suite
+@Suite("SyncCoordinator")
 struct SyncCoordinatorTests {
 
     @Test func testBasicSync() async {
