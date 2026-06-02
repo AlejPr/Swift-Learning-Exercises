@@ -105,6 +105,7 @@ struct ContentView: View {
                         }
                     }
                 }
+                .padding(.horizontal, 25)
                 .listStyle(.plain)
             }
             
