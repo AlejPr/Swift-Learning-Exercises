@@ -4,23 +4,34 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var logs: [WaterLog]
+    @Query private var querySettings: [UserSettings]
     
     @State var selectedTab: Int = 1
     var totalHydration: CGFloat {
         return CGFloat(logs.reduce(into: 0) { $0 += $1.amountML })
     }
     var progress: CGFloat {
-        return totalHydration / 2000
+        return totalHydration / CGFloat(settings.dailyGoalML)
+    }
+    var settings: UserSettings {
+        if querySettings.first != nil { return querySettings.first! }
+        let settings = UserSettings()
+        modelContext.insert(settings)
+        do { try modelContext.save() }
+        catch { print("Could not save settings! \(error)") }
+        return settings
     }
         
     var body: some View {
         NavigationView {
             TabView(selection: $selectedTab) {
                 todayView
+                    .background(Color.secondary.opacity(0.05))
                     .tabItem { Label("Today", systemImage: "waterbottle.fill") }
                     .tag(1)
 
                 settingsView
+                    .background(Color.secondary.opacity(0.05))
                     .tabItem { Label("Settings", systemImage: "gear") }
                     .tag(2)
      
@@ -34,8 +45,7 @@ struct ContentView: View {
         VStack(spacing: 25) {
             
             ZStack {
-                Color.secondary.opacity(0.02)
-                    .cornerRadius(15)
+                Color.white
 
                 HStack {
                     CustomProgressView(progress: progress)
@@ -51,7 +61,7 @@ struct ContentView: View {
                                 .font(.system(size: 20, weight: .medium))
                                 .foregroundColor(Color.black.opacity(0.6))
                         }
-                        Text("of \("2000ml") daily goal")
+                        Text("of \(settings.dailyGoalML) daily goal")
                             .padding(.bottom, 4)
                             .font(.system(size: 15, weight: .medium))
                             .foregroundColor(Color.black.opacity(0.6))
@@ -59,10 +69,9 @@ struct ContentView: View {
                 }
             }
             .frame(height: 180)
-            .overlay {
-                RoundedRectangle(cornerRadius: 20.0)
-                    .stroke(.gray.opacity(0.3), lineWidth: 1)
-            }
+            .background(Color.white)
+            .cornerRadius(15)
+            .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
             .padding(.horizontal, 25)
 
             HStack(spacing: 20) {
@@ -105,7 +114,8 @@ struct ContentView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 25)
+                .cornerRadius(15)
+                .padding(.horizontal, 15)
                 .listStyle(.plain)
             }
             
@@ -115,7 +125,57 @@ struct ContentView: View {
     
     //MARK: - Settings
     var settingsView: some View {
-        Text("Settings")
+        ScrollView {
+            VStack(spacing: 16) {
+                // Daily Goal Card
+                VStack(spacing: 20) {
+                    Text("Daily Goal")
+                        .font(.system(size: 22, weight: .medium))
+                    
+                    Divider()
+                    
+                    Stepper("\(settings.dailyGoalML) ML", value: Binding(
+                        get: { settings.dailyGoalML },
+                        set: { settings.dailyGoalML = $0 }
+                    ), step: 250)
+                    .font(.system(size: 20, weight: .medium))
+                }
+                .padding()
+                .background(Color.white)
+                .cornerRadius(15)
+                .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                
+                // Notifications Card
+                VStack(spacing: 20) {
+                    Toggle("Notifications", isOn: Binding(
+                        get: { settings.remindersEnabled },
+                        set: { settings.remindersEnabled = $0 }
+                    ))
+                    .font(.system(size: 20, weight: .medium))
+                    
+                    Divider()
+                    
+                    Picker("Remind me", selection: Binding(
+                        get: { UserSettings.ReminderIntervals(rawValue: Int(settings.reminderInterval)) },
+                        set: { settings.reminderInterval = TimeInterval($0?.rawValue ?? 7200) }
+                    )) {
+                        ForEach(UserSettings.ReminderIntervals.allCases) { interval in
+                            Text(interval.text).tag(interval as UserSettings.ReminderIntervals?)
+                        }
+                    }
+                    .disabled(!settings.remindersEnabled)
+                    .animation(.easeInOut, value: settings.remindersEnabled)
+                    .font(.system(size: 20, weight: .medium))
+                    .padding(.top, -5)
+                }
+                .padding()
+                .background(Color.white)
+                .cornerRadius(15)
+                .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+            }
+            .padding(.horizontal, 15)
+            .padding(.top, 25)
+        }
     }
     
     
@@ -215,6 +275,16 @@ extension ContentView {
             }
         }
         
+    }
+    
+    private struct GrayBorder: ViewModifier {
+        func body(content: Content) -> some View {
+            content
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20.0)
+                        .stroke(.gray.opacity(0.3), lineWidth: 1)
+                }
+        }
     }
     
 }

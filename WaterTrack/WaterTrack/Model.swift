@@ -27,6 +27,22 @@ final class UserSettings {
         self.reminderInterval = reminderInterval
         self.remindersEnabled = remindersEnabled
     }
+    
+    enum ReminderIntervals: Int, CaseIterable, Identifiable {
+        case oneHour = 3600
+        case twoHours = 7200
+        case threeHours = 10800
+        
+        var id: Self { self }
+        
+        var text: String {
+            switch self {
+            case .oneHour: return "Every hour"
+            case .twoHours: return "Every two hours"
+            case .threeHours: return "Every three hours"
+            }
+        }
+    }
 }
 
 
