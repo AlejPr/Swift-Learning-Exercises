@@ -3,6 +3,7 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(NotificationsCenter.self) private var notificationsCenter
     @Query private var logs: [WaterLog]
     @Query private var querySettings: [UserSettings]
     
@@ -21,105 +22,122 @@ struct ContentView: View {
         catch { print("Could not save settings! \(error)") }
         return settings
     }
+    
+    @State var notificationsEnabled: Bool = false
         
     var body: some View {
-        NavigationView {
-            TabView(selection: $selectedTab) {
-                todayView
-                    .background(Color.secondary.opacity(0.05))
-                    .tabItem { Label("Today", systemImage: "waterbottle.fill") }
-                    .tag(1)
+        TabView(selection: $selectedTab) {
+            todayView
+                .background(Color.secondary.opacity(0.05))
+                .tabItem { Label("Today", systemImage: "waterbottle.fill") }
+                .tag(1)
 
-                settingsView
-                    .background(Color.secondary.opacity(0.05))
-                    .tabItem { Label("Settings", systemImage: "gear") }
-                    .tag(2)
-     
-            }
-            .navigationTitle(selectedTab == 1 ? "Hydration" : "Settings")
+            settingsView
+                .background(Color.secondary.opacity(0.05))
+                .tabItem { Label("Settings", systemImage: "gear") }
+                .tag(2)
+ 
+        }
+        .padding(.top, 40)
+        .task {
+            async let on = notificationsCenter.notificationsEnabled()
+            notificationsEnabled = await on && settings.remindersEnabled
         }
     }
     
     //MARK: - Today View
     var todayView: some View {
-        VStack(spacing: 25) {
-            
-            ZStack {
-                Color.white
-
+        ScrollView {
+            VStack(spacing: 25) {
+                
                 HStack {
-                    CustomProgressView(progress: progress)
-                        .frame(width: 90, height: 90)
-                        .padding(.trailing, 25)
-                    
-                    VStack {
-                        HStack(alignment: .bottom, spacing: 2) {
-                            Text("\(Int(totalHydration))")
-                                .font(.system(size: 30, weight: .bold))
-                            Text("ml")
-                                .padding(.bottom, 4)
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundColor(Color.black.opacity(0.6))
-                        }
-                        Text("of \(settings.dailyGoalML) daily goal")
-                            .padding(.bottom, 4)
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(Color.black.opacity(0.6))
-                    }
-                }
-            }
-            .frame(height: 180)
-            .background(Color.white)
-            .cornerRadius(15)
-            .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-            .padding(.horizontal, 25)
-
-            HStack(spacing: 20) {
-                HydrationButton(action: { addHydration(value: 250) }, amount: 250)
-                HydrationButton(action: { addHydration(value: 500) }, amount: 500)
-            }
-            .padding(.horizontal, 25)
-            
-            if logs.isEmpty {
-                VStack {
-                    Image(systemName: "drop")
-                        .foregroundStyle(.gray.opacity(0.5))
-                        .font(.system(size: 45, weight: .medium))
-                    Text("No entries today")
-                        .foregroundStyle(.gray.opacity(0.75))
-                        .font(.system(size: 20, weight: .medium))
-
-                    Text("Add water to start tracking")
-                        .foregroundStyle(.gray.opacity(0.5))
-                        .font(.system(size: 18, weight: .medium))
-
+                    Text("Hydration")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.primary)
                     Spacer()
                 }
-                .padding(.top, 70)
-            }
-            
-            else {
-                List {
-                    Section {
+                .padding(.horizontal, 25)
+                
+                ZStack {
+                    Color.white
+
+                    HStack {
+                        CustomProgressView(progress: progress)
+                            .frame(width: 90, height: 90)
+                            .padding(.trailing, 25)
+                        
+                        VStack {
+                            HStack(alignment: .bottom, spacing: 2) {
+                                Text("\(Int(totalHydration))")
+                                    .font(.system(size: 30, weight: .bold))
+                                Text("ml")
+                                    .padding(.bottom, 4)
+                                    .font(.system(size: 20, weight: .medium))
+                                    .foregroundColor(Color.black.opacity(0.6))
+                            }
+                            Text("of \(settings.dailyGoalML) daily goal")
+                                .padding(.bottom, 4)
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundColor(Color.black.opacity(0.6))
+                        }
+                    }
+                }
+                .frame(height: 180)
+                .background(Color.white)
+                .cornerRadius(15)
+                .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                .padding(.horizontal, 25)
+
+                HStack(spacing: 20) {
+                    HydrationButton(action: { addHydration(value: 250) }, amount: 250)
+                    HydrationButton(action: { addHydration(value: 500) }, amount: 500)
+                }
+                .padding(.horizontal, 25)
+                
+                if logs.isEmpty {
+                    VStack {
+                        Image(systemName: "drop")
+                            .foregroundStyle(.gray.opacity(0.5))
+                            .font(.system(size: 45, weight: .medium))
+                        Text("No entries today")
+                            .foregroundStyle(.gray.opacity(0.75))
+                            .font(.system(size: 20, weight: .medium))
+
+                        Text("Add water to start tracking")
+                            .foregroundStyle(.gray.opacity(0.5))
+                            .font(.system(size: 18, weight: .medium))
+
+                        Spacer()
+                    }
+                    .padding(.top, 70)
+                }
+                
+                else {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Today's Entries")
                             .foregroundColor(.black)
                             .font(.system(size: 20, weight: .medium))
-                            .listRowInsets(EdgeInsets())
-                            .listSectionSeparator(.hidden)
                             .padding(.leading, 15)
-                    }
-                    Section {
-                        ForEach(logs) { log in
-                            ListRowView(log: log)
+                            .padding(.top, 8)
+
+                        VStack(spacing: 0) {
+                            ForEach(logs) { log in
+                                ListRowView(log: log)
+                                    .padding(.horizontal, 15)
+                                    .padding(.vertical, 10)
+                                Divider()
+                            }
                         }
+                        .background(Color.white)
+                        .cornerRadius(15)
+                        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                        .padding(.horizontal, 10)
                     }
+                    .padding(.horizontal, 15)
                 }
-                .cornerRadius(15)
-                .padding(.horizontal, 15)
-                .listStyle(.plain)
+                
+                
             }
-            
-            
         }
     }
     
@@ -127,6 +145,16 @@ struct ContentView: View {
     var settingsView: some View {
         ScrollView {
             VStack(spacing: 16) {
+                
+                HStack {
+                    Text("Settings")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                }
+                .padding(.horizontal, 15)
+                .padding(.bottom, 4)
+                
                 // Daily Goal Card
                 VStack(spacing: 20) {
                     Text("Daily Goal")
@@ -148,8 +176,11 @@ struct ContentView: View {
                 // Notifications Card
                 VStack(spacing: 20) {
                     Toggle("Notifications", isOn: Binding(
-                        get: { settings.remindersEnabled },
-                        set: { settings.remindersEnabled = $0 }
+                        get: { notificationsEnabled },
+                        set: {
+                            if $0 { userEnabledNotifications() }
+                            else { userDisabledNotifications() }
+                        }
                     ))
                     .font(.system(size: 20, weight: .medium))
                     
@@ -174,7 +205,6 @@ struct ContentView: View {
                 .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
             }
             .padding(.horizontal, 15)
-            .padding(.top, 25)
         }
     }
     
@@ -187,6 +217,28 @@ struct ContentView: View {
             do { try modelContext.save() }
             catch { print("Could not save new waterlog entry! \(error)") }
         }
+    }
+    
+    
+    private func userDisabledNotifications() {
+        settings.remindersEnabled = false
+        notificationsEnabled = false
+    }
+    
+    private func userEnabledNotifications() {
+        settings.remindersEnabled = true
+        Task {
+            let authorization = await notificationsCenter.requestAuthorization()
+            notificationsEnabled = authorization
+            guard authorization else { return }
+            print("Notifications on")
+        }
+    }
+
+    
+    @MainActor
+    private func disableNotifications() {
+        withAnimation { settings.remindersEnabled = false }
     }
 
     
@@ -220,6 +272,8 @@ extension ContentView {
                         .font(.system(size: 16, weight: .bold))
                     Text(df.string(from: log.timestamp))
                 }
+                
+                Spacer()
             }
         }
     }
@@ -292,5 +346,6 @@ extension ContentView {
 #Preview() {
     ContentView(selectedTab: 1)
         .modelContainer(SwiftDataPersistenceService(inMemory: true).container)
+        .environment(NotificationsCenter())
 }
 

@@ -11,5 +11,6 @@ struct WaterTrackApp: App {
             ContentView()
         }
         .modelContainer(swiftDataPersistenceService.container)
+        .environment(NotificationsCenter())
     }
 }
