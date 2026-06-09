@@ -1,0 +1,55 @@
+import Foundation
+
+
+final class ConcurrentCache<Key: Hashable, Value> {
+    
+    private let queue = DispatchQueue(label: "concurrentCache", attributes: .concurrent)
+    private var cache = [Key: Value]()
+    
+    var count: Int {
+        get { queue.sync { return cache.count } }
+    }
+
+    func value(for key: Key) -> Value? {
+        queue.sync { return self.cache[key] }
+    }
+    
+    func set(_ value: Value, for key: Key) {
+        queue.async(flags: .barrier) { self.cache[key] = value }
+    }
+    
+    func removeValue(for key: Key) {
+        queue.async(flags: .barrier) { self.cache.removeValue(forKey: key) }
+    }
+    
+    func removeAll() {
+        queue.async(flags: .barrier) { self.cache.removeAll() }
+    }
+    
+    /// Reads are sync for convenience, if they were async it would require an escaping closure to be passed into the get function to return a value.
+    /// By using a sync call, instead you can block the current thread, switch off to the "Concurrent Cache" queue, and immediately retrieve the value.
+    /// Since the cache thread is concurrent there is very little waiting for the sync call (in most cases no waiting unless there is a write call in progress); it is made immediately as long as the hardware has processing power.
+    ///
+    /// Writes are made asynchronously with a barrier, which causes the queue to wait for all sync functions to complete before starting the write operation.
+    /// Each async barrier call in the concurrent queue effectively transforms the queue from a concurrent queue to a serial one; reads are concurrent, writes are serial.
+    ///
+    /// If writes were synchronous without a barrier, the queue could not guarantee write exclusivity or data race protections as two threads could access the underlying cache at the same time.
+    /// Attempting to retrieve a value and write at the same moment would cause a data race as two threads would be spawned with unsafe competing access to the cache.
+    /// Reads using a synchronous barrier would be safe, however it would destroy the point of a concurrent cache as all calls would be serial.
+
+    /// - Why does the barrier flag give you writer exclusivity? What is the queue actually doing?
+    /// Barrier blocks prevent any additional tasks from being executed on the concurrent queue until all existing tasks have finished, then the barrier runs the submitted task, and subsequently frees up the queue to accept more tasks.
+    /// It effectively turns a concurrent queue into a serial queue until the barrier block(s) have finished executing.
+    ///
+    /// - Reads are sync — doesn't that block the calling thread? Why is that acceptable (or not)?
+    /// Yes, in this case it is acceptable because signifcant work that could cause delays are not being performed, and there are no risk of deadlocks or thread hangs.
+    ///
+    /// - If Value is a class (reference type), does returning it from value(for:) while a concurrent removeAll runs cause a problem? (Think about ARC and what the barrier protects.)
+    /// No because removeAll runs serially, any get requests made for the value before calling removeAll is guaranteed to return a reference to the class. Unless the reference stored is weak, the object will outlive its life in the cache after removeAll is called.
+    ///
+    /// - Could this deadlock? Under what circumstances? (Hint: calling queue.sync from within a block already running on queue.)
+    ///  No this could not deadlock.
+    ///  Threads deadlock when awaiting on a result from a synchronous task that will never arrive; here there are no methods where that is possible as each function immediately writes or returns a value without awaiting the result of an outside task.
+    ///
+    
+}
