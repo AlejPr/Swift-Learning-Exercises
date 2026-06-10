@@ -122,3 +122,85 @@ final class Throttler {
     }
     
 }
+
+
+
+//MARK: - LRU Cache
+final class LRUCache<Key: Hashable, Value> {
+    
+    internal class ListNode {
+        let key: Key?
+        var value: Value?
+        weak var next: ListNode?
+        weak var prev: ListNode?
+        init(_ key: Key, _ val: Value) { self.key = key; self.value = val }
+        init() { self.key = nil; self.value = nil }
+    }
+    
+    private let capacity: Int
+    internal var cache = [Key: ListNode]()
+    internal var queue = DispatchQueue(label: "lruCache")
+    
+    //[dummyLast --- dummyFirst]
+    internal let dummyTail = ListNode()
+    internal let dummyHead = ListNode()
+    
+    init(capacity: Int) {
+        self.capacity = capacity
+        dummyTail.next = dummyHead; dummyHead.prev = dummyTail
+    }
+    
+    //Retrieves an existing node from the cache or creates a new one if not present
+    //Inserts it at the head of the list, and then checks to see if it's necessary to prune a node from the end of the list
+    func setValue(_ value: Value, for key: Key) {
+        queue.async { [weak self] in
+            let node = self?.removeNode(key) ?? ListNode(key, value)
+            node.value = value
+            self?.cache[key] = node
+            self?.insertAtHead(node)
+            self?.prune()
+        }
+    }
+    
+    //If the value exists, remove it from the list and send it to the head
+    func value(for key: Key) -> Value? {
+        queue.sync { [weak self] in
+            guard let node = self?.removeNode(key) else { return nil }
+            self?.insertAtHead(node)
+            return node.value
+        }
+    }
+    
+    //[prev - head]
+    //[prev | node - head]
+    //[prev - node - head]
+    private func insertAtHead(_ node: ListNode) {
+        let prev = dummyHead.prev
+        dummyHead.prev = node
+        prev?.next = node
+        node.prev = prev; node.next = dummyHead
+    }
+    
+    //[prev - node - next]
+    //[prev - ??? - next] | node
+    //[prev - next]
+    private func removeNode(_ key: Key) -> ListNode? {
+        guard let node = cache[key] else { return nil }
+        let next = node.next, prev = node.prev
+        node.next = nil; node.prev = nil
+        next?.prev = prev; prev?.next = next
+        return node
+    }
+    
+    //Removes nodes from the tail of the list until dict is no longer above capacity
+    private func prune() {
+        while cache.count > capacity,
+              let leastUsed = dummyTail.next,
+                let key = leastUsed.key {
+            leastUsed.next?.prev = dummyTail
+            dummyTail.next = leastUsed.next
+            cache.removeValue(forKey: key)
+        }
+    }
+    
+}
