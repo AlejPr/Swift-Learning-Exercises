@@ -1,6 +1,7 @@
 import Foundation
 
 
+//MARK: - ConcurrentCache
 final class ConcurrentCache<Key: Hashable, Value> {
     
     private let queue = DispatchQueue(label: "concurrentCache", attributes: .concurrent)
@@ -51,5 +52,73 @@ final class ConcurrentCache<Key: Hashable, Value> {
     ///  No this could not deadlock.
     ///  Threads deadlock when awaiting on a result from a synchronous task that will never arrive; here there are no methods where that is possible as each function immediately writes or returns a value without awaiting the result of an outside task.
     ///
+    
+}
+
+
+//MARK: - Debouncer
+final class Debouncer {
+    
+    private let delayInterval: TimeInterval
+    private let queue: DispatchQueue
+    private var workItem: DispatchWorkItem?
+    
+    init(delay: TimeInterval, queue: DispatchQueue = .main) {
+        self.delayInterval = delay
+        self.queue = queue
+    }
+    
+    func run(_ action: @escaping () -> Void) {
+        cancel()
+        let workItem = DispatchWorkItem(block: action)
+        self.workItem = workItem
+        
+        queue.asyncAfter(deadline: .now() + self.delayInterval, execute: workItem)
+    }
+    
+    private func cancel() {
+        workItem?.cancel()
+    }
+    
+    /// - Why DispatchWorkItem instead of just asyncAfter(deadline:) with a closure?
+    /// DispatchWorkItem allows you to cancel a pending task; when asyncAfter is executed, attempting to run a task that has been cancelled immediately returns.
+    ///
+    /// - Where's the retain cycle in the naive version? Draw the ownership graph: who retains whom?
+    /// In the naive version where calls to the debouncer are made, which include references to the viewcontroller inside of them without capturing the reference as weak, the capture retains a reference to the viewcontroller while stored inside of the debouncer.
+    /// Thus graph goes: ViewController -> debouncer -> capture -> ViewController. Until another closure is passed into the debouncer that is either weak or does not reference the viewcontroller, the viewcontroller is not allowed to deinitialize because of the stored reference inside of the debouncer's workItem.
+    ///
+    /// - Does the DispatchWorkItem itself participate in the cycle, or just the captured closure?
+    /// The DispatchWorkItem contains a reference to the closure, but the closure itself contains the reference. So by removing any references to the workItem, the closure also loses it's references and is deallocated, which would break the cycle.
+    ///
+    /// - After you add [weak self], what happens if self is deallocated before the work item fires? Walk through it.
+    /// The reference to the WorkItem is lost, which cancels the workItem and prevents it from being executed once asyncAfter is ready to execute the work.
+    ///
+    /// - Is the Debouncer's stored workItem property a strong reference? Does that matter for the cycle?
+    /// Yes it's a strong reference, and it is necessary otherwise the workItem would immediately deallocate and could not be canceled / executed later.
+    /// Yes it also matters, because if it was a weak reference the debouncer would not work but it would also not contain a cycle.
+    
+}
+
+
+
+////MARK: - Throttler
+final class Throttler {
+    
+    private let throttleInterval: TimeInterval
+    private let queue: DispatchQueue
+    private var nextExecutionTime: Date
+    
+    init(interval: TimeInterval, queue: DispatchQueue = .main) {
+        self.throttleInterval = interval
+        self.queue = queue
+        self.nextExecutionTime = Date().addingTimeInterval(-interval)
+    }
+    
+    func run(_ action: @escaping () -> Void) {
+        let curTime = Date()
+        guard curTime >= nextExecutionTime else { return }
+        nextExecutionTime = curTime.addingTimeInterval(throttleInterval)
+        queue.async(execute: action)
+    }
     
 }

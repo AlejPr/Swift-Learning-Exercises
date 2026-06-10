@@ -5,6 +5,7 @@
 
 import Testing
 import Foundation
+import OSLog
 @testable import LearningExercises
 
 
@@ -334,6 +335,72 @@ struct SyncCoordinatorTests {
                 body: "Body content for note number \(i). Lorem ipsum filler."
             )
         }
+    }
+    
+}
+
+
+//MARK: - GCD Tests
+@Suite("GCDTests")
+class GCDTests {
+    
+    class MemoryTestObject {
+        let desc: String
+        init(desc: String) { self.desc = desc }
+        deinit { print("MemoryTestObject Deinit") }
+    }
+    
+    let debouncer = Debouncer(delay: 2, queue: .global())
+    var debouncerObject: MemoryTestObject?
+    
+    deinit { print("Deinitialized") }
+    
+    //Output should be:
+    //Test B Completed, Bounce Object Reference Test: Optional("InMemory")
+    //Because of the retain cycle neither the GCDTest object or MemoryTest Object deinit
+    @Test func debounceTestWithCycle() {
+        let logger = Logger()
+        debouncer.run { logger.info("Test A Completed") }
+        
+        sleep(1)
+        debouncer.run {
+            let ref = MemoryTestObject(desc: "InMemory")
+            self.debouncerObject = ref
+            logger.info("Test B Completed")
+            print("Bounce Object Reference Test: \(String(describing: self.debouncerObject?.desc))")
+        }
+                
+        sleep(4)
+    }
+    
+    //Output should be:
+    //Test B Completed, Bounce Object Reference Test: Optional("InMemory"), Deinitialized, MemoryTestObject Deinit
+    @Test func noRetainCycle() {
+        let logger = Logger()
+        debouncer.run { logger.info("Test A Completed") }
+        
+        sleep(1)
+        debouncer.run { [weak self] in
+            let ref = MemoryTestObject(desc: "InMemory")
+            self?.debouncerObject = ref
+            logger.info("Test B Completed")
+            print("Bounce Object Reference Test: \(String(describing: self?.debouncerObject?.desc))")
+        }
+        
+        sleep(4)
+    }
+    
+    @Test func throttler() {
+        let throttler = Throttler(interval: 2, queue: .global())
+        
+        for i in 1...10 {
+            throttler.run { print("\(i)") }
+            Thread.sleep(until: Date().addingTimeInterval(0.5))
+        }
+
+        sleep(3)
+        
+        throttler.run { print("Final") }
     }
     
 }
