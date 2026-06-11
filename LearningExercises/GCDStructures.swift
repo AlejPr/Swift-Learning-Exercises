@@ -1,5 +1,5 @@
 import Foundation
-
+import Collections
 
 //MARK: - ConcurrentCache
 final class ConcurrentCache<Key: Hashable, Value> {
@@ -203,4 +203,93 @@ final class LRUCache<Key: Hashable, Value> {
         }
     }
     
+}
+
+
+//MARK: - Batch Fetcher
+final class BatchFetcher {
+    
+    /// Fetches all URLs concurrently. Calls completion exactly once,
+    /// on the main queue, with results in the same order as `urls`.
+    /// A failed fetch should produce nil at that index, not abort the batch.
+    func fetchAll(_ urls: [URL],
+                  using fetcher: @escaping (URL, @escaping (Data?) -> Void) -> Void, //Fetchers execute concurrently?
+                  completion: @escaping ([Data?]) -> Void) {
+        
+        let serialWriteQueue = DispatchQueue(label: "writeQueue")
+        let group = DispatchGroup()
+        var ans: [Data?] = Array(repeating: nil, count: urls.count)
+        
+        for fetchRequest in urls.enumerated() {
+            group.enter()
+            
+            fetcher(fetchRequest.element) { res in
+                guard let res else { group.leave(); return }
+                
+                serialWriteQueue.async {
+                    ans[fetchRequest.offset] = res
+                    group.leave()
+                }
+            }
+        }
+        
+        group.notify(queue: .main) { completion(ans) }
+    }
+    
+}
+
+
+//MARK: - Download Scheduler
+//Problem with thread explosion
+final class DownloadScheduler {
+    
+    private let semaphore: DispatchSemaphore
+    private let concurrentQueue = DispatchQueue(label: "downloadScheduler", attributes: .concurrent)
+    private let writeQueue = DispatchQueue(label: "queueEnforcement")
+    private var workItemQueue = Deque<DispatchWorkItem>()
+    private let inFlightGroup = DispatchGroup()
+    
+    init(maxConcurrent: Int) { self.semaphore = DispatchSemaphore(value: maxConcurrent) }
+
+    /// Enqueues work. At most `maxConcurrent` execute simultaneously;
+    /// the rest wait their turn in FIFO order.
+    @discardableResult
+    func schedule(_ work: @escaping () -> Void) -> DispatchWorkItem {
+        let workItem = DispatchWorkItem{ work() }
+        inFlightGroup.enter()
+        writeQueue.sync { [weak self ] in self?.workItemQueue.append(workItem) }
+        executeNext()
+        return workItem
+    }
+    
+    private func executeNext() {
+        concurrentQueue.async { [weak self] in
+            guard let self else { return }
+            self.semaphore.wait()
+            
+            let first = self.writeQueue.sync { return self.workItemQueue.popFirst() }
+            guard let first = first else {
+                self.semaphore.signal()
+                return
+            }
+            
+            if !first.isCancelled { first.perform() }
+            
+            self.inFlightGroup.leave()
+            self.semaphore.signal()
+        }
+    }
+
+    /// Cancels all pending (not-yet-started) work and calls `onDrained`
+    /// once any in-flight work finishes.
+    func cancelAll(onDrained: @escaping () -> Void) {
+        writeQueue.sync { [weak self] in
+            while let first = self?.workItemQueue.popFirst() {
+                first.cancel()
+                self?.inFlightGroup.leave()
+            }
+        }
+        
+        inFlightGroup.notify(queue: .main, execute: onDrained)
+    }
 }
