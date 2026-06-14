@@ -241,7 +241,7 @@ final class BatchFetcher {
 
 //MARK: - Download Scheduler
 //Problem with thread explosion
-final class DownloadScheduler {
+final class DownloadScheduler: @unchecked Sendable {
     
     private let semaphore: DispatchSemaphore
     private let concurrentQueue = DispatchQueue(label: "downloadScheduler", attributes: .concurrent)
@@ -292,4 +292,128 @@ final class DownloadScheduler {
         
         inFlightGroup.notify(queue: .main, execute: onDrained)
     }
+}
+
+
+
+//MARK: - Combine Style Event Bus
+final class EventBus<Event> {
+    
+    private var listeners = [UUID: (Event) -> Void]()
+    private let writeQueue = DispatchQueue(label: "busQueue")
+    
+    /// Registers a handler. The subscription stays alive exactly as long
+    /// as the returned token does: deallocate the token, and the handler
+    /// is removed automatically — no explicit unsubscribe call.
+    func subscribe(_ handler: @escaping (Event) -> Void) -> SubscriptionToken {
+        let token = SubscriptionToken { [weak self] id in
+            _ = self?.writeQueue.sync { self?.listeners.removeValue(forKey: id) }
+        }
+        
+        writeQueue.sync { listeners[token.id] = handler }
+        return token
+    }
+
+    /// Delivers the event to all live subscribers, on the caller's thread.
+    func publish(_ event: Event) {
+        let snapshot = writeQueue.sync { return self.listeners.values }
+        for handler in snapshot { handler(event) }
+    }
+    
+    func unregister(_ id: UUID) {
+        writeQueue.async { [weak self] in self?.listeners.removeValue(forKey: id) }
+    }
+        
+}
+
+final class SubscriptionToken {
+    
+    let id = UUID()
+    var unregister: (UUID) -> Void
+    
+    init(_ unregister: @escaping (UUID) -> Void) { self.unregister = unregister }
+    deinit { unregister(id) }
+    
+}
+
+
+
+//MARK: - Rate Limiter
+final class GCDRateLimiter {
+    
+    internal var queue = Deque<DispatchWorkItem>()
+    internal var timer: DispatchSourceTimer?
+    internal let permit: Int
+    internal var capacity: Int
+    
+    internal let serialQueue = DispatchQueue(label: "GCDRateLimiterSerialQueue")
+    internal let executionQueue = DispatchQueue(label: "GCDRateLimiterConcurrentQueue", attributes: .concurrent)
+    internal var paused: Int = 0
+    
+    /// Allows at most `permits` executions per `interval`, refilled steadily.
+    //NOTE: Init should be optional in case permits is 0 or less.
+    init(permits: Int, per interval: TimeInterval) {
+        self.permit = permits
+        self.capacity = permits
+        self.timer = DispatchSource.makeTimerSource()
+        let interval = DispatchTimeInterval.milliseconds(Int(interval * 1000))
+        
+        timer?.schedule(deadline: .now() + interval, repeating: interval)
+        timer?.setEventHandler(handler: DispatchWorkItem { [weak self] in self?.timerFired() })
+        timer?.activate()
+    }
+
+    /// Runs `work` as soon as a permit is available; FIFO when none are.
+    func execute(_ work: @escaping () -> Void) {
+        serialQueue.sync { queue.append(DispatchWorkItem(block: work)) }
+        executeNext()
+    }
+    
+    //Adds 1 point of capacity and calls the next work item
+    private func timerFired() {
+        serialQueue.sync { self.capacity = min(capacity + 1, permit) }
+        executeNext()
+    }
+    
+    //Checks if there's capacity, if the timer is paused, and if both condtions pass then executes the next block
+    private func executeNext() {
+        let (capacity, isPaused) = serialQueue.sync { (self.capacity, self.paused) }
+        guard capacity > 0 && isPaused == 0 else { return }
+        
+        //Permission to continue execution
+        let next = serialQueue.sync { self.queue.popFirst() }
+        guard let next else { return }
+        serialQueue.sync { self.capacity -= 1 }
+        executionQueue.async(execute: next)
+    }
+    
+    
+    /// Pauses permit consumption; queued work waits. Must be balanced
+    /// with resume(). Calling pause twice then resume once stays paused.
+    func pause() {
+        serialQueue.sync {
+            timer?.suspend()
+            self.paused += 1
+        }
+    }
+    
+    
+    func resume() {
+        serialQueue.sync {
+            guard self.paused > 0 else { return } //Prevent over resume crash
+            self.paused -= 1
+            timer?.resume()
+        }
+        executeNext()
+    }
+    
+    //
+    deinit {
+        serialQueue.sync {
+            for _ in stride(from: 1, through: paused, by: 1) { timer?.resume() }
+            timer?.cancel()
+            timer = nil
+        }
+    }
+    
 }

@@ -125,7 +125,7 @@ struct UserDefaultsTests {
 }
 
 
-@Suite("TTLCache")
+@Suite("TTLCache", .serialized)
 struct TTLCacheTests {
     
     actor CallCounter {

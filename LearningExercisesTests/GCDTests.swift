@@ -504,7 +504,7 @@ private final class Locked<T>: @unchecked Sendable {
 
 
 //MARK: - Download Scheduler Tests
-@Suite("DownloadScheduler")
+@Suite("DownloadScheduler", .serialized)
 struct DownloadSchedulerTests {
  
     // MARK: - Basic execution
@@ -743,3 +743,195 @@ struct DownloadSchedulerTests {
     }
 }
 
+
+
+@Suite("RateLimiter", .serialized)
+struct RateLimiterTests {
+ 
+    // MARK: - Permit gating
+ 
+    @Test(.timeLimit(.minutes(1)))
+    func firstBurstUpToPermitsRunsImmediately() {
+        // A fresh bucket starts full: the first `permits` items should run
+        // without waiting for any refill.
+        let limiter = GCDRateLimiter(permits: 3, per: 10.0) // slow refill, so only the initial bucket counts
+        let ran = Locked(0)
+ 
+        for _ in 0..<3 { limiter.execute { ran.mutate { $0 += 1 } } }
+ 
+        // Give the limiter a beat to drain its initial bucket — but far less
+        // than one refill interval, so a refill can't be what let them run.
+        #expect(eventually(within: .seconds(1)) { ran.read { $0 } == 3 },
+                "a full bucket must let the first \(3) items run without waiting for refill")
+    }
+ 
+    @Test(.timeLimit(.minutes(1)))
+    func workBeyondInitialPermitsWaitsForRefill() {
+        // 2 permits, refilling every 0.25s. Submit 4 immediately: 2 run now,
+        // the other 2 must wait for refills (~0.25s and ~0.5s).
+        let limiter = GCDRateLimiter(permits: 2, per: 0.25)
+        let ranEarly = Locked(0)
+ 
+        for _ in 0..<4 { limiter.execute { ranEarly.mutate { $0 += 1 } } }
+ 
+        // Sample almost immediately: only the initial bucket should have run.
+        usleep(50_000) // 50ms — well under the 250ms refill
+        #expect(ranEarly.read { $0 } == 2,
+                "ran \(ranEarly.read { $0 }) immediately — only the initial \(2) permits should fire before any refill")
+ 
+        // Eventually all four complete as refills arrive.
+        #expect(eventually(within: .seconds(3)) { ranEarly.read { $0 } == 4 },
+                "remaining work never ran — refill timer may not be firing")
+    }
+ 
+    // MARK: - FIFO ordering of queued work
+ 
+    @Test(.timeLimit(.minutes(1)))
+    func queuedWorkRunsInFIFOOrder() {
+        let limiter = GCDRateLimiter(permits: 1, per: 0.1)
+        let order = Locked<[Int]>([])
+ 
+        for i in 0..<6 { limiter.execute { order.mutate { $0.append(i) } } }
+ 
+        #expect(eventually(within: .seconds(3)) { order.read { $0.count } == 6 })
+        #expect(order.read { $0 } == Array(0..<6),
+                "execution order \(order.read { $0 }) — queued work must drain FIFO")
+    }
+ 
+    // MARK: - Refill rate (the soft, timing-dependent test)
+ 
+    @Test(.timeLimit(.minutes(1)))
+    func refillRateIsApproximatelyHonored() {
+        // The honest caveat in action. We assert a RANGE, not a value:
+        // with 1 permit per 0.1s, in ~0.55s we expect roughly 1 (initial)
+        // + 5 (refills) = 6 items, and we accept 4...8 to absorb scheduler
+        // jitter. This is exactly the test that should be replaced by an
+        // injected virtual clock — then you'd assert EXACTLY 6 with zero
+        // real time elapsed and zero flake.
+        let limiter = GCDRateLimiter(permits: 1, per: 0.1)
+        let ran = Locked(0)
+        for _ in 0..<20 { limiter.execute { ran.mutate { $0 += 1 } } }
+ 
+        usleep(550_000) // ~0.55s of real wall clock
+        let count = ran.read { $0 }
+        #expect((4...8).contains(count),
+                "ran \(count) in ~0.55s at 1/0.1s — outside the tolerated 4...8 band (jitter, or a wrong refill rate)")
+    }
+ 
+    // MARK: - execute() must not block the caller
+ 
+    @Test(.timeLimit(.minutes(1)))
+    func executeReturnsImmediatelyEvenWhenBucketIsEmpty() {
+        // The waiting-room-is-a-deque lesson: when no permits remain,
+        // execute() must enqueue and return, not block the caller's thread
+        // on a permit. If it blocks, this loop takes ~the refill time and
+        // the elapsed check fails.
+        let limiter = GCDRateLimiter(permits: 1, per: 5.0) // bucket empties fast, refills slowly
+        limiter.execute { }            // consume the only permit
+        usleep(20_000)                 // let it drain
+ 
+        let clock = ContinuousClock()
+        let elapsed = clock.measure {
+            for _ in 0..<10 { limiter.execute { } } // no permits free — must still return fast
+        }
+        #expect(elapsed < .milliseconds(100),
+                "execute() took \(elapsed) with an empty bucket — it must enqueue and return, not block on a permit")
+    }
+ 
+    // MARK: - Counted pause / resume
+ 
+    @Test(.timeLimit(.minutes(1)))
+    func pausePreventsExecutionUntilResume() {
+        let limiter = GCDRateLimiter(permits: 2, per: 0.1)
+        let ran = Locked(0)
+ 
+        limiter.pause()
+        for _ in 0..<4 { limiter.execute { ran.mutate { $0 += 1 } } }
+ 
+        // Long enough that, unpaused, several refills would have fired.
+        usleep(300_000) // 300ms
+        #expect(ran.read { $0 } == 0, "work ran while paused")
+ 
+        limiter.resume()
+        #expect(eventually(within: .seconds(3)) { ran.read { $0 } == 4 },
+                "work did not resume after resume()")
+    }
+ 
+    @Test(.timeLimit(.minutes(1)))
+    func pauseIsCountedSoResumeMustBalance() {
+        // The suspension-depth requirement: pause twice, resume once →
+        // still paused. Only the balancing resume releases work.
+        let limiter = GCDRateLimiter(permits: 2, per: 0.1)
+        let ran = Locked(0)
+ 
+        limiter.pause()
+        limiter.pause()                 // depth 2
+        for _ in 0..<3 { limiter.execute { ran.mutate { $0 += 1 } } }
+ 
+        limiter.resume()                // depth 1 — still paused
+        usleep(250_000)
+        #expect(ran.read { $0 } == 0, "unbalanced resume released work — pause/resume must be counted, not boolean")
+ 
+        limiter.resume()                // depth 0 — now running
+        #expect(eventually(within: .seconds(3)) { ran.read { $0 } == 3 },
+                "balancing resume did not release queued work")
+    }
+ 
+    // MARK: - Lifecycle / crash traps
+    // These exist because DispatchSource misuse CRASHES rather than misbehaves.
+    // A passing run here means "did not trap," which is the whole point.
+ 
+    @Test(.timeLimit(.minutes(1)))
+    func deallocatingAPausedLimiterDoesNotCrash() {
+        // THE famous trap: a suspended dispatch source/timer that gets
+        // deallocated traps with "BUG IN CLIENT OF LIBDISPATCH: Release of
+        // a suspended object". The limiter's deinit must restore suspension
+        // depth to zero (resume the timer) before releasing it.
+        //
+        // We can't assert the negative of a crash from inside the process —
+        // if the limiter is buggy, THIS TEST PROCESS DIES and the run fails
+        // hard. That hard failure IS the signal. Reaching the #expect means
+        // deinit cleaned up correctly.
+        for _ in 0..<5 {
+            autoreleasepool {
+                let limiter = GCDRateLimiter(permits: 1, per: 0.1)
+                limiter.pause()         // leave it suspended...
+                _ = limiter
+            }                            // ...and let it deallocate while paused
+        }
+        #expect(Bool(true), "survived deallocation of paused limiters — deinit balanced the suspension")
+    }
+ 
+    @Test(.timeLimit(.minutes(1)))
+    func deallocatingWithQueuedWorkDoesNotCrash() {
+        // Destroyed mid-flight with pending work still queued. Captures must
+        // release; the timer must tear down cleanly regardless of queue state.
+        weak var weakCanary: Canary?
+        autoreleasepool {
+            let limiter = GCDRateLimiter(permits: 1, per: 10.0) // slow: most work stays queued
+            let canary = Canary()
+            weakCanary = canary
+            for _ in 0..<5 {
+                limiter.execute { [canary] in _ = canary }
+            }
+            _ = limiter
+        }
+        #expect(eventually { weakCanary == nil },
+                "queued work's captures leaked after the limiter was destroyed")
+    }
+ 
+    @Test(.timeLimit(.minutes(1)))
+    func repeatedPauseResumeCyclesDoNotCrash() {
+        // Over-resuming a dispatch source ALSO traps. This hammers the
+        // balance logic: if any cycle lets resume outrun pause, it crashes.
+        let limiter = GCDRateLimiter(permits: 2, per: 0.05)
+        for _ in 0..<20 {
+            limiter.pause()
+            limiter.resume()
+        }
+        let ran = Locked(0)
+        for _ in 0..<4 { limiter.execute { ran.mutate { $0 += 1 } } }
+        #expect(eventually(within: .seconds(3)) { ran.read { $0 } == 4 },
+                "limiter stopped working after many pause/resume cycles")
+    }
+}
