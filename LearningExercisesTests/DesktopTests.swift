@@ -10,7 +10,7 @@ import OSLog
 
 
 //MARK: - BuildTracker Suite
-@Suite("BuildTracker")
+@Suite("BuildTracker", .serialized)
 struct BuildTrackerTests {
     
     // MARK: - Helpers
