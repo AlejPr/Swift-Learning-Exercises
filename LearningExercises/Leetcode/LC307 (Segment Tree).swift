@@ -1,3 +1,4 @@
+import Foundation
 
 //fileprivate typealias SegTree = ObjectSegTree
 fileprivate final class ObjectSegTree {
@@ -111,6 +112,69 @@ struct FlatSegTree {
         return query(2 * node, left, mid, queryLeft, queryRight) + query(2 * node + 1, mid + 1, right, queryLeft, queryRight)
     }
 
+}
+
+
+fileprivate struct FlatIterativeSegmentTree {
+    
+    var tree = [Int]()
+    let length: Int
+    
+    //Initializes the tree with a length of 2 * inputArray.length
+    //First half of the tree are the branch nodes containing computed values, second half is the original array
+    init(_ arr: [Int]) {
+        let length = arr.count
+        self.length = length
+        
+        tree.reserveCapacity(2 * length)
+        tree.append(contentsOf: repeatElement(0, count: length))
+        tree.append(contentsOf: arr)
+    
+        //work through the branches backwards starting at the middle and iterating down until 1, the top of the tree
+        //EX:
+        // - [0,0,0,X,1,2,3,4]
+        // - [0,10,3,7,1,2,3,4]
+        for i in stride(from: length - 1, through: 1, by: -1) {
+            tree[i] = tree[2 * i] + tree[(2 * i) + 1]
+        }
+    }
+    
+    @_optimize(speed)
+    public mutating func update(_ index: Int,_ val: Int) {
+        var pos = index + length //Move the index to the leaf node in the tree
+        tree[pos] = val
+        
+        //Right shift bits to move one layer up the tree, then recalculate that node.
+        //Right shifting halves the value of the index
+        while pos > 1 {
+            pos >>= 1
+            tree[pos] = tree[pos * 2] + tree[pos * 2 + 1]
+        }
+    }
+    
+    
+    @_optimize(speed)
+    public func query(_ left: Int,_ right: Int) -> Int {
+        var left = left + length
+        var right = right + length + 1 //right needs to be offset by 1 to make it exclusive
+        
+        //Offset both indices by the array length (start at the bottom of the tree) and move up together.
+        var sum = 0
+        while left < right {
+            if (left & 1) == 1 {
+                sum += tree[left]
+                left += 1
+            }
+            if (right & 1) == 1 {
+                right -= 1
+                sum += tree[right]
+            }
+            left /= 2; right /= 2
+        }
+        
+        return sum
+    }
+    
 }
 
 
