@@ -178,7 +178,7 @@ fileprivate struct FlatIterativeSegmentTree {
 }
 
 
-class NumArray {
+fileprivate class NumArray {
 
     fileprivate var st: SegTree
 

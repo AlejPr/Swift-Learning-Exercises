@@ -23,7 +23,7 @@
  */
 
 
-class Solution {
+fileprivate class Solution {
 
     func getResults(_ queries: [[Int]]) -> [Bool] {
         
