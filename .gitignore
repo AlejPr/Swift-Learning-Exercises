@@ -1,0 +1,29 @@
+# Xcode user-specific files
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Build artifacts
+build/
+DerivedData/
+*.moved-aside
+
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# CocoaPods (uncomment if you use it and don't want Pods committed)
+# Pods/
+
+# Carthage
+Carthage/Build/
+
+# Fastlane (if used)
+fastlane/report.xml
+fastlane/screenshots/
+
+
+Secrets.xcconfig

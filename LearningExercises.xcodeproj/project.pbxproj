@@ -27,9 +27,33 @@
 		792548122FC5D56F001DD1B0 /* LearningExercisesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LearningExercisesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		79964A832FF5776E009A4DE0 /* Exceptions for "LearningExercises" folder in "LearningExercises" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Leetcode/Python/224. Basic Calculator.py",
+			);
+			target = 792548062FC5D56F001DD1B0 /* LearningExercises */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		79964A842FF5776E009A4DE0 /* Exceptions for "LearningExercises" folder in "Compile Sources" phase from "LearningExercises" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 792548032FC5D56F001DD1B0 /* Sources */;
+			membershipExceptions = (
+				"Leetcode/Python/224. Basic Calculator.py",
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		792548092FC5D56F001DD1B0 /* LearningExercises */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				79964A832FF5776E009A4DE0 /* Exceptions for "LearningExercises" folder in "LearningExercises" target */,
+				79964A842FF5776E009A4DE0 /* Exceptions for "LearningExercises" folder in "Compile Sources" phase from "LearningExercises" target */,
+			);
 			path = LearningExercises;
 			sourceTree = "<group>";
 		};
