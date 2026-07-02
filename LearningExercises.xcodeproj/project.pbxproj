@@ -32,6 +32,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"Leetcode/Python/224. Basic Calculator.py",
+				"Leetcode/Python/288. Unique Word Abbreviation.py",
 			);
 			target = 792548062FC5D56F001DD1B0 /* LearningExercises */;
 		};
@@ -43,6 +44,7 @@
 			buildPhase = 792548032FC5D56F001DD1B0 /* Sources */;
 			membershipExceptions = (
 				"Leetcode/Python/224. Basic Calculator.py",
+				"Leetcode/Python/288. Unique Word Abbreviation.py",
 			);
 		};
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
