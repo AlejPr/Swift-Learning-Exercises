@@ -18,7 +18,7 @@ Return a boolean array answer, where answer[i] is true if there exists a path be
 ///Standard union find implementation (with a swift twist!)
 ///Since nums is in order, the question is only asking whether or not any single path from node i to j is bigger than maxDiff; if so the entire path is invalid
 ///Union find easily merges all nodes from i to j that are within these bounds.
-class Solution {
+fileprivate class Solution {
     func pathExistenceQueries(_ n: Int, _ nums: [Int], _ maxDiff: Int, _ queries: [[Int]]) -> [Bool] {
         var disjointSet = UnionFind(n)
         var ans = [Bool]()
