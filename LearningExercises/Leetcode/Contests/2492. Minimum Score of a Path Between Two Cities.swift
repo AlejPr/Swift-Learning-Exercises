@@ -1,8 +1,7 @@
-import Collections
 /*
- 
+
  2492. Minimum Score of a Path Between Two Cities
- 
+
  You are given a positive integer n representing n cities numbered from 1 to n. You are also given a 2D array roads where roads[i] = [ai, bi, distancei] indicates that there is a bidirectional road between cities ai and bi with a distance equal to distancei. The cities graph is not necessarily connected.
 
  The score of a path between two cities is defined as the minimum distance of a road in this path.
@@ -15,19 +14,21 @@ import Collections
  It is allowed for a path to contain the same road multiple times, and you can visit cities 1 and n multiple times along the path.
  The test cases are generated such that there is at least one path between 1 and n.
 
- 
+ https://leetcode.com/problems/minimum-score-of-a-path-between-two-cities/
+
  */
 
+import Collections
 
 fileprivate class Solution {
-    
+
     ///Standard BFS search with a deque, convert the edges into a graph + reversed graph
     func minScore(_ n: Int, _ roads: [[Int]]) -> Int {
         var graph = roads.reduce(into: [Int: [(node: Int, dist: Int)]]()) {
             $0[$1[0], default: []].append( (node: $1[1], dist: $1[2]) )
             $0[$1[1], default: []].append( (node: $1[0], dist: $1[2]) )
         }
-        
+
         var visited = Array(repeating: 10_000_000, count: n + 1)
         var queue: Deque<(node: Int, minDist: Int)> = [(node: 1, minDist: 9_000_000)]
 

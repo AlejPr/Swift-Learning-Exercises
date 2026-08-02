@@ -1,5 +1,7 @@
 /*
- //MARK: - 3977. Minimum Time to Reach Target With Limited Power
+
+ 3977. Minimum Time to Reach Target With Limited Power
+
  You are given a directed weighted graph with n nodes labeled from 0 to n - 1.
 
  The graph is represented by a 2D integer array edges, where edges[i] = [ui, vi, ti] indicates a directed edge from node ui to node vi that takes ti seconds to traverse.
@@ -19,9 +21,10 @@
  answer[0] is the minimum time required for the signal to reach node target.
  answer[1] is the maximum remaining power among all paths that achieve answer[0].
  If the signal cannot reach target, return [-1, -1].
- 
- */
 
+ https://leetcode.com/problems/minimum-time-to-reach-target-with-limited-power/
+
+ */
 
 import Collections
 
@@ -31,14 +34,14 @@ fileprivate class Solution {
         var node: Int
         var power: Int
         var time: Int
-        
+
         //Sort prioritizes minimum time, then maximum power.
         public static func < (lhs: Self, rhs: Self) -> Bool {
             if lhs.time == rhs.time { return lhs.power > rhs.power }
             return lhs.time < rhs.time
         }
     }
-    
+
     ///Standard Djikstra's search over the graph. Since the heap sort is ordered by time, then power, it's always guaranteed to return the minimum time to reach the target as well as the highest power.
     ///EX. In the case of reaching node 4, where one path is (time: 2, power: 5), and the second path is (time: 2, power: 7), path 2 would be processed first.
     ///And of course, Djikstra's guarantees minimum time to reach a node. No DP needed.
@@ -49,7 +52,7 @@ fileprivate class Solution {
 
         var visited = Array(repeating: -1, count: n)
         var queue: Heap<Heaper> = [Heaper(node: source, power: power, time: 0)]
-        
+
         while let next = queue.popMin() {
             //Visited array cuts off pathways that have lower power than another path that has already been traversed.
             if next.power <= visited[next.node] { continue }
@@ -58,16 +61,16 @@ fileprivate class Solution {
             //Found the target with minimum time and maximum power
             if next.node == target { return [next.time, next.power] }
             guard let children = graph[next.node] else { continue }
-            
+
             //Continue searching across the graph
             for edge in children {
                 let newPower = next.power - cost[next.node]
                 guard newPower >= 0 else { continue }
                 queue.insert(Heaper(node: edge.dest, power: newPower, time:next.time + edge.time))
             }
-            
+
         }
-        
+
         return [-1, -1]
     }
 }

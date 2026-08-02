@@ -1,6 +1,7 @@
-
 /*
- //MARK: - 3974. Maximum Total Sum of K Selected Elements
+
+ 3974. Maximum Total Sum of K Selected Elements
+
  You are given an integer array nums and two integers k and mul.
 
  Select exactly k elements from nums. Process these elements one by one in any order you choose.
@@ -13,6 +14,7 @@
 
  Return an integer denoting the maximum possible total sum.
 
+ https://leetcode.com/problems/maximum-total-sum-of-k-selected-elements/
 
  */
 
@@ -65,10 +67,10 @@ fileprivate func filterOccupiedIntervals(_ occupiedIntervals: [[Int]], _ freeSta
             continue
         }
         else { end = max(end, iEnd) }
-        
+
     }
     merged.append([start, end])
-    
+
     var ans = [[Int]]()
 
     //subtract any intervals that are inside freestart, freeend, then modify any that interlap
@@ -83,7 +85,7 @@ fileprivate func filterOccupiedIntervals(_ occupiedIntervals: [[Int]], _ freeSta
             i1[1] = freeStart - 1; i2[0] = freeEnd + 1
             ans.append(i1); ans.append(i2)
         }
-        
+
         else {
             var newStart = iStart, newEnd = iEnd
             if newStart < freeStart && newEnd >= freeStart { newEnd = freeStart - 1 }

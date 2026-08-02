@@ -32,22 +32,12 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"Leetcode/Contests/3980. Minimum Operations to Transform Binary String.swift",
-				"Leetcode/Python/224. Basic Calculator.py",
-				"Leetcode/Python/288. Unique Word Abbreviation.py",
 			);
 			target = 792548062FC5D56F001DD1B0 /* LearningExercises */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		79964A842FF5776E009A4DE0 /* Exceptions for "LearningExercises" folder in "Compile Sources" phase from "LearningExercises" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = 792548032FC5D56F001DD1B0 /* Sources */;
-			membershipExceptions = (
-				"Leetcode/Python/224. Basic Calculator.py",
-				"Leetcode/Python/288. Unique Word Abbreviation.py",
-			);
-		};
 		A906FC122FF993AA0074A4CE /* Exceptions for "LearningExercises" folder in "Copy Bundle Resources" phase from "LearningExercises" target */ = {
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
 			buildPhase = 792548052FC5D56F001DD1B0 /* Resources */;
@@ -62,7 +52,6 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				79964A832FF5776E009A4DE0 /* Exceptions for "LearningExercises" folder in "LearningExercises" target */,
-				79964A842FF5776E009A4DE0 /* Exceptions for "LearningExercises" folder in "Compile Sources" phase from "LearningExercises" target */,
 				A906FC122FF993AA0074A4CE /* Exceptions for "LearningExercises" folder in "Copy Bundle Resources" phase from "LearningExercises" target */,
 			);
 			path = LearningExercises;
