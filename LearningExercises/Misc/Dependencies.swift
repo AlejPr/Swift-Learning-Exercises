@@ -1,9 +1,3 @@
-//
-//  Dependencies.swift
-//  
-//
-//  Created by Alejandro on 5/25/26.
-//
 
 import Foundation
 

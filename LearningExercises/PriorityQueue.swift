@@ -1,70 +1,8 @@
+//
+//
+//
 
-
-
-struct LeetcodePQ<T> {
-    private var heap: [T]
-    private let sort: (T, T) -> Bool
-    
-    init(sort: @escaping (T, T) -> Bool) {
-        self.heap = []
-        self.sort = sort
-    }
-
-    var isEmpty: Bool {
-        heap.isEmpty
-    }
-
-    mutating func enqueue(_ element: T) {
-        heap.append(element)
-        siftUp(heap.count - 1)
-    }
-
-    mutating func dequeue() -> T? {
-        guard !heap.isEmpty else { return nil }
-        if heap.count == 1 {
-            return heap.removeFirst()
-        } else {
-            let first = heap[0]
-            heap[0] = heap.removeLast()
-            siftDown(0)
-            return first
-        }
-    }
-
-    private mutating func siftUp(_ index: Int) {
-        var child = index
-        var parent = (child - 1) / 2
-        while child > 0 && sort(heap[child], heap[parent]) {
-            heap.swapAt(child, parent)
-            child = parent
-            parent = (child - 1) / 2
-        }
-    }
-
-    private mutating func siftDown(_ index: Int) {
-        var parent = index
-        while true {
-            let left = 2 * parent + 1
-            let right = 2 * parent + 2
-            var candidate = parent
-
-            if left < heap.count && sort(heap[left], heap[candidate]) {
-                candidate = left
-            }
-            if right < heap.count && sort(heap[right], heap[candidate]) {
-                candidate = right
-            }
-            if candidate == parent {
-                return
-            }
-            heap.swapAt(parent, candidate)
-            parent = candidate
-        }
-    }
-}
-
-
-
+///Custom Priority Queue (Heap) Implementation that provides support for a custom sort algorithm and changing an item's value with an index
 struct PriorityQueue<T> {
     
     private(set) var heap = [T]()

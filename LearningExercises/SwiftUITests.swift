@@ -1,9 +1,3 @@
-//
-//  SwiftUITests.swift
-//  LearningExercises
-//
-//  Created by Alejandro on 5/27/26.
-//
 
 import SwiftUI
 
