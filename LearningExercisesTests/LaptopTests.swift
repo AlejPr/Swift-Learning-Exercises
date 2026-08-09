@@ -246,3 +246,107 @@ struct TTLCacheTests {
     }
     
 }
+
+
+@Suite("HeapTests")
+struct HeapTests {
+    
+    @Test func basicTest() {
+        var queue = CustomHeap3<Int> { $0 < $1 }
+        for i in 1...3 { queue.insert(i) }
+        #expect(queue.heap == [1,2,3])
+        
+        for i in 1...3 {
+            #expect(queue.popFirst() == i)
+        }
+    }
+    
+    @Test func testtest() {
+        var queue = CoolCustomHeap<Int> { $0 < $1 }
+        for i in [3, 6, 2, 4, 8]{ queue.insert(i) }
+        while let first = queue.popFirst() { }
+    }
+    
+    @Test func mediumTest() {
+        var queue = CoolCustomHeap<Int> { $0 < $1 }
+        for i in 1...50 { queue.insert(i) }
+        print(queue.arr)
+        
+        for i in 1...50 {
+            #expect(queue.popFirst() == i )
+        }
+    }
+    
+    @Test func randomizedTest() {
+        var queue = CoolCustomHeap<Int> { $0 < $1 }
+
+        var keys = [Int]()
+        keys.reserveCapacity(100)
+        for i in 1...100 {
+            let rand = Int.random(in: 100...1000)
+            keys.append(rand)
+            queue.insert(rand)
+        }
+        
+        keys.sort()
+        for i in 0...99 {
+            #expect(keys[i] == queue.popFirst())
+        }
+    }
+    
+    
+    @Test func changeValueUpWorks() {
+        var queue = PriorityQueue<Int> { $0 < $1 }
+        
+        var keys = [Int]()
+        keys.reserveCapacity(100)
+        for _ in 1...100 {
+            let rand = Int.random(in: 100...1000)
+            keys.append(rand)
+            queue.insert(rand)
+        }
+        let mid = keys[keys.count / 2]
+        let midIndex = queue.heap.firstIndex(of: mid)!
+        queue.changeValue(midIndex, 1999)
+        keys[keys.count / 2] = 1999
+        keys.sort()
+        
+        print(queue.heap)
+        for i in 0...99 {
+            #expect(keys[i] == queue.popFirst())
+        }
+    }
+    
+    @Test func changeValueDownWorks() {
+        var queue = PriorityQueue<Int> { $0 < $1 }
+        
+        var keys = [Int]()
+        keys.reserveCapacity(100)
+        for _ in 1...100 {
+            let rand = Int.random(in: 100...1000)
+            keys.append(rand)
+            queue.insert(rand)
+        }
+        let mid = keys[keys.count / 2]
+        let midIndex = queue.heap.firstIndex(of: mid)!
+        queue.changeValue(midIndex, 10)
+        keys[keys.count / 2] = 10
+        keys.sort()
+        
+        print(queue.heap)
+        for i in 0...99 {
+            #expect(keys[i] == queue.popFirst())
+        }
+    }
+    
+    @Test func coolCUstomHeap() {
+        var queue = CoolCustomHeap<Int>([1,2,3,4,5,6,7]) { $0 < $1 }
+        print(queue.arr)
+        
+        for i in 1...3 {
+            #expect(queue.popFirst() == i)
+            print(queue.arr)
+        }
+    }
+    
+}
